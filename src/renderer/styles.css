@@ -38,28 +38,18 @@ body {
   padding: 10px 14px;
   border-bottom: 1px solid #e5e9d9;
   background: linear-gradient(180deg, #f7f9ef 0%, #f3f6e7 100%);
+  -webkit-app-region: drag;
 }
 
-.status {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.status-main {
+.drag-hint {
   font-size: 12px;
-  font-weight: 600;
-}
-
-.status-sub {
-  font-size: 11px;
   color: #5f654f;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 600;
+  user-select: none;
 }
 
 .top-toggle {
+  -webkit-app-region: no-drag;
   border: 1px solid #cfd5be;
   border-radius: 999px;
   background: #fcfdf7;
@@ -86,6 +76,7 @@ body {
 .editor-wrap {
   flex: 1;
   overflow: auto;
+  -webkit-app-region: no-drag;
 }
 
 .memo-editor {
@@ -95,6 +86,7 @@ body {
   line-height: 1.7;
   outline: none;
   color: #1f2318;
+  -webkit-app-region: no-drag;
 }
 
 .memo-editor p {

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import type { ImageSaveResponse, MemoDoc, MemoRecord, SaveMemoResponse } from '../src/shared/types';
 
 export type StoragePaths = {
@@ -12,6 +11,7 @@ export type StoragePaths = {
 const MEMO_FILENAME = 'memo.json';
 const IMAGES_DIRNAME = 'images';
 const MAX_IMAGE_WIDTH = 640;
+const IMAGE_ID_PATTERN = /^[a-f0-9-]+$/i;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -71,6 +71,17 @@ export function normalizeImageDimensions(width: number, height: number): { width
     width: Math.round(width * ratio),
     height: Math.round(height * ratio)
   };
+}
+
+export function isValidImageId(id: string): boolean {
+  return IMAGE_ID_PATTERN.test(id);
+}
+
+export function imagePathForId(paths: StoragePaths, id: string): string {
+  if (!isValidImageId(id)) {
+    throw new Error('Invalid image id');
+  }
+  return path.join(paths.imagesDirPath, `${id}.png`);
 }
 
 export async function loadMemo(paths: StoragePaths): Promise<MemoRecord> {
@@ -135,8 +146,7 @@ export async function saveImage(
 
   return {
     id,
-    filePath: imagePath,
-    fileUrl: pathToFileURL(imagePath).toString(),
+    src: `memo-image://${id}`,
     width: normalized.width,
     height: normalized.height
   };

@@ -1,20 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from '@tiptap/extension-image';
+import { TextSelection } from '@tiptap/pm/state';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { MemoDoc } from '../shared/types';
 
-function formatUpdatedAt(value: string | null): string {
-  if (!value) {
-    return 'Not saved yet';
+function getFirstImageFile(dataTransfer: DataTransfer | null): File | null {
+  if (!dataTransfer) {
+    return null;
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'Saved';
+  const fromFiles = Array.from(dataTransfer.files).find((file) => file.type.startsWith('image/'));
+  if (fromFiles) {
+    return fromFiles;
   }
 
-  return `Saved ${date.toLocaleString()}`;
+  const fromItems = Array.from(dataTransfer.items)
+    .find((item) => item.type.startsWith('image/'))
+    ?.getAsFile();
+
+  return fromItems ?? null;
 }
 
 async function imageDimensions(file: File): Promise<{ width: number; height: number }> {
@@ -24,7 +29,7 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Unable to load pasted image'));
+      img.onerror = () => reject(new Error('Unable to read image dimensions'));
       img.src = blobUrl;
     });
 
@@ -39,9 +44,7 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
 
 export function App(): JSX.Element {
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
-  const [status, setStatus] = useState('Loading...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDoc = useRef<MemoDoc | null>(null);
@@ -57,27 +60,27 @@ export function App(): JSX.Element {
         class: 'memo-editor'
       },
       handlePaste(view, event) {
-        const items = Array.from(event.clipboardData?.items ?? []);
-        const imageItem = items.find((item) => item.type.startsWith('image/'));
+        const imageFile = getFirstImageFile(event.clipboardData);
+        const clipboardTypes = Array.from(event.clipboardData?.types ?? []);
+        const shouldTryImagePaste = !!imageFile || clipboardTypes.includes('Files');
 
-        if (!imageItem) {
+        if (!shouldTryImagePaste) {
           return false;
         }
 
-        const file = imageItem.getAsFile();
-        if (!file) {
-          return false;
-        }
+        event.preventDefault();
 
         void (async () => {
           try {
-            const { width, height } = await imageDimensions(file);
-            const buffer = await file.arrayBuffer();
-            const saved = await window.memo.saveImageFromClipboard({
-              buffer,
-              width,
-              height
-            });
+            let saved;
+            if (imageFile) {
+              const { width, height } = await imageDimensions(imageFile);
+              const buffer = await imageFile.arrayBuffer();
+              saved = await window.memo.saveImageFromBytes({ buffer, width, height });
+            } else {
+              saved = await window.memo.pasteImageFromClipboard();
+            }
+
             const imageNodeType = view.state.schema.nodes.image;
             if (!imageNodeType) {
               return;
@@ -86,8 +89,8 @@ export function App(): JSX.Element {
             view.dispatch(
               view.state.tr.replaceSelectionWith(
                 imageNodeType.create({
-                  src: saved.fileUrl,
-                  alt: 'Pasted image'
+                  src: saved.src,
+                  alt: imageFile?.name || 'Pasted image'
                 })
               )
             );
@@ -95,6 +98,49 @@ export function App(): JSX.Element {
             setErrorMessage(null);
           } catch (error) {
             const message = error instanceof Error ? error.message : 'Image paste failed';
+            setErrorMessage(message);
+          }
+        })();
+
+        return true;
+      },
+      handleDrop(view, event) {
+        const imageFile = getFirstImageFile(event.dataTransfer);
+        if (!imageFile) {
+          return false;
+        }
+
+        event.preventDefault();
+
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (coords) {
+          const selection = TextSelection.create(view.state.doc, coords.pos);
+          view.dispatch(view.state.tr.setSelection(selection));
+        }
+
+        void (async () => {
+          try {
+            const { width, height } = await imageDimensions(imageFile);
+            const buffer = await imageFile.arrayBuffer();
+            const saved = await window.memo.saveImageFromBytes({ buffer, width, height });
+
+            const imageNodeType = view.state.schema.nodes.image;
+            if (!imageNodeType) {
+              return;
+            }
+
+            view.dispatch(
+              view.state.tr.replaceSelectionWith(
+                imageNodeType.create({
+                  src: saved.src,
+                  alt: imageFile.name || 'Dropped image'
+                })
+              )
+            );
+            view.focus();
+            setErrorMessage(null);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Image drop failed';
             setErrorMessage(message);
           }
         })();
@@ -110,21 +156,16 @@ export function App(): JSX.Element {
         clearTimeout(saveTimer.current);
       }
 
-      setStatus('Saving...');
-
       saveTimer.current = setTimeout(async () => {
         if (!lastDoc.current) {
           return;
         }
 
         try {
-          const result = await window.memo.saveMemo(lastDoc.current);
-          setUpdatedAt(result.updatedAt);
-          setStatus('Saved');
+          await window.memo.saveMemo(lastDoc.current);
           setErrorMessage(null);
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Save failed';
-          setStatus('Save failed');
           setErrorMessage(message);
         }
       }, 500);
@@ -147,16 +188,13 @@ export function App(): JSX.Element {
         }
 
         editor.commands.setContent(memo.doc, false);
-        setUpdatedAt(memo.updatedAt);
         setAlwaysOnTop(topState.alwaysOnTop);
-        setStatus('Ready');
       } catch (error) {
         if (disposed) {
           return;
         }
 
         const message = error instanceof Error ? error.message : 'Initialization failed';
-        setStatus('Error');
         setErrorMessage(message);
       }
     })();
@@ -169,15 +207,10 @@ export function App(): JSX.Element {
     };
   }, [editor]);
 
-  const updatedAtText = useMemo(() => formatUpdatedAt(updatedAt), [updatedAt]);
-
   return (
     <main className="app-shell">
       <header className="toolbar">
-        <div className="status">
-          <span className="status-main">{status}</span>
-          <span className="status-sub">{updatedAtText}</span>
-        </div>
+        <div className="drag-hint">Always Memo</div>
         <button
           className="top-toggle"
           type="button"

@@ -1,10 +1,23 @@
 import path from 'node:path';
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import { readFile } from 'node:fs/promises';
+import { app, BrowserWindow, clipboard, ipcMain, Menu, protocol } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
 import type { ImageSaveRequest, MemoDoc, TopState } from '../src/shared/types';
-import { createStoragePaths, loadMemo, saveImage, saveMemo } from './storage';
+import { createStoragePaths, imagePathForId, loadMemo, saveImage, saveMemo } from './storage';
 
 let mainWindow: BrowserWindow | null = null;
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'memo-image',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true
+    }
+  }
+]);
 
 function getTopState(): TopState {
   return {
@@ -78,19 +91,64 @@ function createWindow(): void {
   });
 }
 
+function imageIdFromRequestUrl(requestUrl: string): string | null {
+  try {
+    const parsed = new URL(requestUrl);
+    const id = parsed.host || parsed.pathname.replace(/^\/+/, '');
+    return id || null;
+  } catch {
+    return null;
+  }
+}
+
 app.whenReady().then(() => {
+  const storagePaths = createStoragePaths(app.getPath('userData'));
+
+  protocol.handle('memo-image', async (request) => {
+    const imageId = imageIdFromRequestUrl(request.url);
+    if (!imageId) {
+      return new Response('Bad request', { status: 400 });
+    }
+
+    let imagePath: string;
+    try {
+      imagePath = imagePathForId(storagePaths, imageId);
+    } catch {
+      return new Response('Bad request', { status: 400 });
+    }
+
+    try {
+      const imageBuffer = await readFile(imagePath);
+      return new Response(imageBuffer, {
+        status: 200,
+        headers: { 'content-type': 'image/png' }
+      });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
+  });
+
   createAppMenu();
   createWindow();
-
-  const storagePaths = createStoragePaths(app.getPath('userData'));
 
   ipcMain.handle('memo:load', async () => loadMemo(storagePaths));
 
   ipcMain.handle('memo:save', async (_event, doc: MemoDoc) => saveMemo(storagePaths, doc));
 
-  ipcMain.handle('image:saveFromClipboard', async (_event, payload: ImageSaveRequest) => {
+  ipcMain.handle('image:saveBytes', async (_event, payload: ImageSaveRequest) => {
     const imageBuffer = Buffer.from(payload.buffer);
     return saveImage(storagePaths, imageBuffer, payload.width, payload.height);
+  });
+
+  ipcMain.handle('image:pasteFromClipboard', async () => {
+    const image = clipboard.readImage();
+    if (image.isEmpty()) {
+      throw new Error('No image in clipboard');
+    }
+
+    const size = image.getSize();
+    const imageBuffer = image.toPNG();
+    return saveImage(storagePaths, imageBuffer, size.width, size.height);
   });
 
   ipcMain.handle('window:toggleAlwaysOnTop', async () => toggleAlwaysOnTop());

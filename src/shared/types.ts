@@ -1,7 +1,6 @@
-export type MemoDoc = {
-  type: 'doc';
-  content?: unknown[];
-};
+import type { JSONContent } from '@tiptap/core';
+
+export type MemoDoc = JSONContent;
 
 export type MemoRecord = {
   version: 1;
@@ -14,16 +13,15 @@ export type SaveMemoResponse = {
   updatedAt: string;
 };
 
-export type ImageSaveRequest = {
-  buffer: ArrayBuffer;
+export type ImageSaveResponse = {
+  id: string;
+  src: string;
   width: number;
   height: number;
 };
 
-export type ImageSaveResponse = {
-  id: string;
-  filePath: string;
-  fileUrl: string;
+export type ImageSaveRequest = {
+  buffer: ArrayBuffer;
   width: number;
   height: number;
 };
@@ -35,7 +33,8 @@ export type TopState = {
 export type MemoApi = {
   loadMemo: () => Promise<MemoRecord>;
   saveMemo: (doc: MemoDoc) => Promise<SaveMemoResponse>;
-  saveImageFromClipboard: (payload: ImageSaveRequest) => Promise<ImageSaveResponse>;
+  saveImageFromBytes: (payload: ImageSaveRequest) => Promise<ImageSaveResponse>;
+  pasteImageFromClipboard: () => Promise<ImageSaveResponse>;
   toggleAlwaysOnTop: () => Promise<TopState>;
   getAlwaysOnTop: () => Promise<TopState>;
 };

@@ -2,7 +2,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { createStoragePaths, loadMemo, normalizeImageDimensions, saveImage, saveMemo } from '../electron/storage';
+import { createStoragePaths, imagePathForId, loadMemo, normalizeImageDimensions, saveImage, saveMemo } from '../electron/storage';
 import type { MemoDoc } from '../src/shared/types';
 
 const tempRoots: string[] = [];
@@ -65,10 +65,10 @@ describe('storage', () => {
     const content = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 
     const saved = await saveImage(paths, content, 1400, 700);
-    const fileContent = await readFile(saved.filePath);
+    const fileContent = await readFile(imagePathForId(paths, saved.id));
 
     expect(fileContent.equals(content)).toBe(true);
-    expect(saved.fileUrl.startsWith('file://')).toBe(true);
+    expect(saved.src).toBe(`memo-image://${saved.id}`);
     expect(saved.width).toBe(640);
     expect(saved.height).toBe(320);
   });
