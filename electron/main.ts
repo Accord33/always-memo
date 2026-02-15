@@ -6,6 +6,9 @@ import type { ImageSaveRequest, MemoDoc, TopState } from '../src/shared/types';
 import { createStoragePaths, imagePathForId, loadMemo, saveImage, saveMemo } from './storage';
 
 let mainWindow: BrowserWindow | null = null;
+const ZOOM_STEP = 0.1;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2;
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -63,6 +66,27 @@ function createAppMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function clampZoom(value: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+}
+
+function setZoomFactor(value: number): void {
+  if (!mainWindow) {
+    return;
+  }
+
+  mainWindow.webContents.setZoomFactor(clampZoom(value));
+}
+
+function changeZoomFactor(delta: number): void {
+  if (!mainWindow) {
+    return;
+  }
+
+  const current = mainWindow.webContents.getZoomFactor();
+  setZoomFactor(current + delta);
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 420,
@@ -90,6 +114,31 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || (!input.control && !input.meta)) {
+      return;
+    }
+
+    const key = input.key.toLowerCase();
+
+    if (key === '0') {
+      event.preventDefault();
+      setZoomFactor(1);
+      return;
+    }
+
+    if (key === '+' || key === '=' || key === 'add') {
+      event.preventDefault();
+      changeZoomFactor(ZOOM_STEP);
+      return;
+    }
+
+    if (key === '-' || key === '_' || key === 'subtract') {
+      event.preventDefault();
+      changeZoomFactor(-ZOOM_STEP);
+    }
   });
 }
 

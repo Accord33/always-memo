@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Always-on-top memo app for macOS",
+  "author": "sakabe",
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "concurrently -k -n RENDERER,MAIN,ELECTRON -c cyan,yellow,green \"npm:dev:renderer\" \"npm:dev:main\" \"npm:dev:electron\"",
@@ -13,6 +14,8 @@
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.node.json",
     "start": "npm run build && electron dist-electron/electron/main.js",
+    "icon:mac": "./scripts/make-mac-icon.sh",
+    "dist:mac": "npm run icon:mac && npm run build && electron-builder --mac dir",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "npm run typecheck",
     "test": "vitest run",
@@ -22,7 +25,6 @@
     "@tiptap/extension-image": "^2.11.5",
     "@tiptap/react": "^2.11.5",
     "@tiptap/starter-kit": "^2.11.5",
-    "electron": "^35.1.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -32,10 +34,32 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
+    "electron": "^35.1.5",
+    "electron-builder": "^25.1.8",
     "electronmon": "^2.0.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.6",
     "vitest": "^2.1.8",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.sakabe.alwaysmemo",
+    "productName": "Always Memo",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dir"
+      ],
+      "icon": "build/icon.icns"
+    }
   }
 }
