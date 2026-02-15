@@ -1,0 +1,135 @@
+:root {
+  font-family: 'Avenir Next', 'Hiragino Kaku Gothic ProN', sans-serif;
+  color: #1c1f1a;
+  background: radial-gradient(circle at 12% 12%, #f5f7ef 0%, #ecefdf 45%, #e5e8d6 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  padding: 14px;
+}
+
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #d4d9c5;
+  border-radius: 14px;
+  background: #fbfcf6;
+  box-shadow: 0 14px 30px rgba(58, 68, 31, 0.14);
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e9d9;
+  background: linear-gradient(180deg, #f7f9ef 0%, #f3f6e7 100%);
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.status-main {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-sub {
+  font-size: 11px;
+  color: #5f654f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-toggle {
+  border: 1px solid #cfd5be;
+  border-radius: 999px;
+  background: #fcfdf7;
+  color: #2f3423;
+  padding: 6px 11px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.top-toggle:hover {
+  background: #f2f5e7;
+}
+
+.error-banner {
+  margin: 10px 14px 0;
+  border: 1px solid #e7b9b5;
+  background: #fff1f1;
+  color: #8d2121;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.editor-wrap {
+  flex: 1;
+  overflow: auto;
+}
+
+.memo-editor {
+  min-height: 100%;
+  padding: 18px;
+  font-size: 15px;
+  line-height: 1.7;
+  outline: none;
+  color: #1f2318;
+}
+
+.memo-editor p {
+  margin: 0 0 10px;
+}
+
+.memo-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.memo-editor ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.memo-editor img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid #d9decb;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 8px;
+  }
+
+  .toolbar {
+    padding: 10px;
+  }
+
+  .memo-editor {
+    padding: 14px;
+    font-size: 14px;
+  }
+}
