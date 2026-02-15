@@ -270,7 +270,6 @@ export function App(): JSX.Element {
   return (
     <main className="app-shell">
       <header className="toolbar">
-        <div className="drag-hint">Always Memo</div>
         <button
           className="top-toggle"
           type="button"

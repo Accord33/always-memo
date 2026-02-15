@@ -1,7 +1,7 @@
 :root {
-  font-family: 'Avenir Next', 'Hiragino Kaku Gothic ProN', sans-serif;
-  color: #1c1f1a;
-  background: radial-gradient(circle at 12% 12%, #f5f7ef 0%, #ecefdf 45%, #e5e8d6 100%);
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+  color: #1d1d1f;
+  background: #fff;
 }
 
 * {
@@ -16,81 +16,74 @@ body,
 }
 
 body {
-  padding: 14px;
+  background: #fff;
 }
 
 .app-shell {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border: 1px solid #d4d9c5;
-  border-radius: 14px;
-  background: #fbfcf6;
-  box-shadow: 0 14px 30px rgba(58, 68, 31, 0.14);
+  background: #fff;
   overflow: hidden;
 }
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid #e5e9d9;
-  background: linear-gradient(180deg, #f7f9ef 0%, #f3f6e7 100%);
+  min-height: 40px;
+  padding: 8px 12px;
+  background: #fff;
   -webkit-app-region: drag;
-}
-
-.drag-hint {
-  font-size: 12px;
-  color: #5f654f;
-  font-weight: 600;
-  user-select: none;
 }
 
 .top-toggle {
   -webkit-app-region: no-drag;
-  border: 1px solid #cfd5be;
+  border: 1px solid #d2d2d7;
   border-radius: 999px;
-  background: #fcfdf7;
-  color: #2f3423;
-  padding: 6px 11px;
+  background: #f5f5f7;
+  color: #1d1d1f;
+  padding: 5px 10px;
   font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   cursor: pointer;
 }
 
 .top-toggle:hover {
-  background: #f2f5e7;
+  background: #ececf0;
 }
 
 .error-banner {
-  margin: 10px 14px 0;
-  border: 1px solid #e7b9b5;
-  background: #fff1f1;
-  color: #8d2121;
-  border-radius: 8px;
+  margin: 4px 12px 0;
+  border: 1px solid #efb2b2;
+  background: #fff4f4;
+  color: #8b1f1f;
+  border-radius: 10px;
   font-size: 12px;
-  padding: 8px 10px;
+  padding: 7px 10px;
 }
 
 .editor-wrap {
   flex: 1;
   overflow: auto;
+  background: #fff;
   -webkit-app-region: no-drag;
 }
 
 .memo-editor {
   min-height: 100%;
-  padding: 18px;
-  font-size: 15px;
-  line-height: 1.7;
+  padding: 10px 18px 18px;
+  font-size: 16px;
+  line-height: 1.65;
   outline: none;
-  color: #1f2318;
+  color: #1d1d1f;
+  background: #fff;
   -webkit-app-region: no-drag;
 }
 
 .memo-editor p {
-  margin: 0 0 10px;
+  margin: 0 0 12px;
 }
 
 .memo-editor p:last-child {
@@ -98,24 +91,19 @@ body {
 }
 
 .memo-editor ul {
-  margin: 0 0 10px;
-  padding-left: 20px;
+  margin: 0 0 12px;
+  padding-left: 22px;
 }
 
 .memo-editor img {
   display: block;
   max-width: 100%;
   height: auto;
-  margin: 8px 0;
-  border-radius: 8px;
-  border: 1px solid #d9decb;
+  margin: 10px 0;
+  border-radius: 10px;
 }
 
 @media (max-width: 640px) {
-  body {
-    padding: 8px;
-  }
-
   .toolbar {
     padding: 10px;
   }

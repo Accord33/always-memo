@@ -88,10 +88,6 @@ function createWindow(): void {
     void mainWindow.loadFile(indexPath);
   }
 
-  mainWindow.webContents.once('did-finish-load', () => {
-    mainWindow?.webContents.openDevTools({ mode: 'detach' });
-  });
-
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
