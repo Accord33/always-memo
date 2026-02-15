@@ -42,6 +42,8 @@ function createAppMenu(): void {
     template.push({ role: 'appMenu' });
   }
 
+  template.push({ role: 'editMenu' });
+
   template.push({
     label: 'Window',
     submenu: [
@@ -85,6 +87,10 @@ function createWindow(): void {
     const indexPath = path.join(app.getAppPath(), 'dist/renderer/index.html');
     void mainWindow.loadFile(indexPath);
   }
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow?.webContents.openDevTools({ mode: 'detach' });
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;

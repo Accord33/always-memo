@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from '@tiptap/extension-image';
 import { TextSelection } from '@tiptap/pm/state';
+import type { EditorView } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
 import type { MemoDoc } from '../shared/types';
@@ -42,6 +43,41 @@ async function imageDimensions(file: File): Promise<{ width: number; height: num
   }
 }
 
+function insertImageNode(
+  view: EditorView,
+  src: string,
+  alt: string
+): void {
+  const imageNodeType = view.state.schema.nodes.image;
+  if (!imageNodeType) {
+    return;
+  }
+
+  view.dispatch(
+    view.state.tr.replaceSelectionWith(
+      imageNodeType.create({
+        src,
+        alt
+      })
+    )
+  );
+  view.focus();
+}
+
+function clipboardDebugInfo(data: DataTransfer | null): {
+  hasClipboardData: boolean;
+  types: string[];
+  itemTypes: string[];
+  fileTypes: string[];
+} {
+  return {
+    hasClipboardData: !!data,
+    types: Array.from(data?.types ?? []),
+    itemTypes: Array.from(data?.items ?? []).map((item) => item.type),
+    fileTypes: Array.from(data?.files ?? []).map((file) => file.type || file.name)
+  };
+}
+
 export function App(): JSX.Element {
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,43 +96,56 @@ export function App(): JSX.Element {
         class: 'memo-editor'
       },
       handlePaste(view, event) {
-        const imageFile = getFirstImageFile(event.clipboardData);
-        const clipboardTypes = Array.from(event.clipboardData?.types ?? []);
-        const shouldTryImagePaste = !!imageFile || clipboardTypes.includes('Files');
+        console.info('[paste] fired', {
+          ...clipboardDebugInfo(event.clipboardData),
+          selectionPos: view.state.selection.from
+        });
 
-        if (!shouldTryImagePaste) {
-          return false;
+        const imageFile = getFirstImageFile(event.clipboardData);
+        if (!imageFile) {
+          const plainText = event.clipboardData?.getData('text/plain') ?? '';
+          const htmlText = event.clipboardData?.getData('text/html') ?? '';
+          const hasTextPayload = plainText.length > 0 || htmlText.length > 0;
+
+          if (hasTextPayload) {
+            console.info('[paste] text path -> delegate default');
+            return false;
+          }
+
+          event.preventDefault();
+          console.info('[paste] clipboard image path -> pasteImageFromClipboard');
+
+          void (async () => {
+            try {
+              const saved = await window.memo.pasteImageFromClipboard();
+              insertImageNode(view, saved.src, 'Pasted image');
+              setErrorMessage(null);
+            } catch (error) {
+              console.error('[paste] failed', error);
+              const message = error instanceof Error ? error.message : 'Image paste failed';
+              if (message.includes('No image in clipboard')) {
+                setErrorMessage('Clipboardに画像がありません。スクショはCtrl+Cmd+Shift+4/3でコピーしてください。');
+                return;
+              }
+              setErrorMessage(message);
+            }
+          })();
+
+          return true;
         }
 
         event.preventDefault();
+        console.info('[paste] image file path -> saveImageFromBytes');
 
         void (async () => {
           try {
-            let saved;
-            if (imageFile) {
-              const { width, height } = await imageDimensions(imageFile);
-              const buffer = await imageFile.arrayBuffer();
-              saved = await window.memo.saveImageFromBytes({ buffer, width, height });
-            } else {
-              saved = await window.memo.pasteImageFromClipboard();
-            }
-
-            const imageNodeType = view.state.schema.nodes.image;
-            if (!imageNodeType) {
-              return;
-            }
-
-            view.dispatch(
-              view.state.tr.replaceSelectionWith(
-                imageNodeType.create({
-                  src: saved.src,
-                  alt: imageFile?.name || 'Pasted image'
-                })
-              )
-            );
-            view.focus();
+            const { width, height } = await imageDimensions(imageFile);
+            const buffer = await imageFile.arrayBuffer();
+            const saved = await window.memo.saveImageFromBytes({ buffer, width, height });
+            insertImageNode(view, saved.src, imageFile.name || 'Pasted image');
             setErrorMessage(null);
           } catch (error) {
+            console.error('[paste] failed', error);
             const message = error instanceof Error ? error.message : 'Image paste failed';
             setErrorMessage(message);
           }
@@ -105,6 +154,11 @@ export function App(): JSX.Element {
         return true;
       },
       handleDrop(view, event) {
+        console.info('[drop] fired', {
+          fileTypes: Array.from(event.dataTransfer?.files ?? []).map((file) => file.type || file.name),
+          selectionPos: view.state.selection.from
+        });
+
         const imageFile = getFirstImageFile(event.dataTransfer);
         if (!imageFile) {
           return false;
@@ -123,23 +177,10 @@ export function App(): JSX.Element {
             const { width, height } = await imageDimensions(imageFile);
             const buffer = await imageFile.arrayBuffer();
             const saved = await window.memo.saveImageFromBytes({ buffer, width, height });
-
-            const imageNodeType = view.state.schema.nodes.image;
-            if (!imageNodeType) {
-              return;
-            }
-
-            view.dispatch(
-              view.state.tr.replaceSelectionWith(
-                imageNodeType.create({
-                  src: saved.src,
-                  alt: imageFile.name || 'Dropped image'
-                })
-              )
-            );
-            view.focus();
+            insertImageNode(view, saved.src, imageFile.name || 'Dropped image');
             setErrorMessage(null);
           } catch (error) {
+            console.error('[drop] failed', error);
             const message = error instanceof Error ? error.message : 'Image drop failed';
             setErrorMessage(message);
           }
@@ -171,6 +212,25 @@ export function App(): JSX.Element {
       }, 500);
     }
   });
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
+        const active = document.activeElement as HTMLElement | null;
+        console.info('[key] paste shortcut', {
+          metaKey: event.metaKey,
+          ctrlKey: event.ctrlKey,
+          tagName: active?.tagName ?? null,
+          className: active?.className ?? null
+        });
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (!editor) {
