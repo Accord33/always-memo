@@ -19,12 +19,78 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      - name: Verify package version was bumped
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+
+          const before = process.env.GITHUB_EVENT_BEFORE;
+          if (!before || /^0+$/.test(before)) {
+            console.log('No previous commit to compare; skipping version bump check.');
+            process.exit(0);
+          }
+
+          const currentPkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          let previousText;
+          try {
+            previousText = execFileSync('git', ['show', `${before}:package.json`], { encoding: 'utf8' });
+          } catch {
+            console.error('Failed to read package.json from previous commit.');
+            process.exit(1);
+          }
+
+          const previousPkg = JSON.parse(previousText);
+
+          const parse = (version) => {
+            const match = String(version).trim().match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+            if (!match) {
+              return null;
+            }
+            return [Number(match[1]), Number(match[2]), Number(match[3])];
+          };
+
+          const previousVersion = String(previousPkg.version ?? '');
+          const currentVersion = String(currentPkg.version ?? '');
+
+          const previousParsed = parse(previousVersion);
+          const currentParsed = parse(currentVersion);
+
+          if (!previousParsed || !currentParsed) {
+            console.error(`Invalid semver value. previous=${previousVersion}, current=${currentVersion}`);
+            process.exit(1);
+          }
+
+          let cmp = 0;
+          for (let i = 0; i < 3; i += 1) {
+            if (currentParsed[i] > previousParsed[i]) {
+              cmp = 1;
+              break;
+            }
+            if (currentParsed[i] < previousParsed[i]) {
+              cmp = -1;
+              break;
+            }
+          }
+
+          if (cmp <= 0) {
+            console.error(`package.json version must be bumped on main push. previous=${previousVersion}, current=${currentVersion}`);
+            process.exit(1);
+          }
+
+          console.log(`Version bump check passed. ${previousVersion} -> ${currentVersion}`);
+          NODE
 
       - name: Install dependencies
         run: npm ci
@@ -61,11 +127,13 @@ jobs:
           OLD_IFS=$IFS
           IFS=$'\n'
           ZIP_ASSETS=($(find release -type f -name "*.zip" | sort))
+          BLOCKMAP_ASSETS=($(find release -type f -name "*.blockmap" | sort))
+          LATEST_MAC_ASSETS=($(find release -maxdepth 1 -type f -name "latest-mac.yml" | sort))
           APP_BUNDLES=($(find release -mindepth 2 -maxdepth 2 -type d -name "*.app" | sort))
           IFS=$OLD_IFS
 
-          if [ "${#ZIP_ASSETS[@]}" -eq 0 ] || [ "${#APP_BUNDLES[@]}" -eq 0 ]; then
-            echo "Expected .zip and .app assets under release/, but some are missing."
+          if [ "${#ZIP_ASSETS[@]}" -eq 0 ] || [ "${#BLOCKMAP_ASSETS[@]}" -eq 0 ] || [ "${#LATEST_MAC_ASSETS[@]}" -eq 0 ] || [ "${#APP_BUNDLES[@]}" -eq 0 ]; then
+            echo "Expected .zip, .blockmap, latest-mac.yml, and .app assets under release/, but some are missing."
             exit 1
           fi
 
@@ -78,6 +146,8 @@ jobs:
 
           gh release create "${TAG}" \
             "${ZIP_ASSETS[@]}" \
+            "${BLOCKMAP_ASSETS[@]}" \
+            "${LATEST_MAC_ASSETS[@]}" \
             "${APP_ARCHIVES[@]}" \
             --title "${TAG}" \
             --generate-notes

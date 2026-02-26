@@ -54,6 +54,13 @@
       "dist-electron/**",
       "package.json"
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "sakabe",
+        "repo": "always-memo"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "target": [

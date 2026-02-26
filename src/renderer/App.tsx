@@ -4,7 +4,7 @@ import { TextSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
 import StarterKit from '@tiptap/starter-kit';
 import { EditorContent, useEditor } from '@tiptap/react';
-import type { MemoDoc } from '../shared/types';
+import type { MemoDoc, UpdateStatusPayload } from '../shared/types';
 
 function getFirstImageFile(dataTransfer: DataTransfer | null): File | null {
   if (!dataTransfer) {
@@ -81,6 +81,7 @@ function clipboardDebugInfo(data: DataTransfer | null): {
 export function App(): JSX.Element {
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatusPayload | null>(null);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDoc = useRef<MemoDoc | null>(null);
@@ -267,6 +268,31 @@ export function App(): JSX.Element {
     };
   }, [editor]);
 
+  useEffect(() => {
+    let disposed = false;
+    const unsubscribe = window.memo.onUpdateStatus((payload) => {
+      if (!disposed) {
+        setUpdateStatus(payload);
+      }
+    });
+
+    void (async () => {
+      try {
+        const status = await window.memo.getUpdateStatus();
+        if (!disposed) {
+          setUpdateStatus(status);
+        }
+      } catch {
+        // Ignore update bootstrap errors in renderer.
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
+
   return (
     <main className="app-shell">
       <header className="toolbar">
@@ -283,6 +309,30 @@ export function App(): JSX.Element {
       </header>
 
       {errorMessage ? <p className="error-banner">{errorMessage}</p> : null}
+
+      {updateStatus?.state === 'available' ? (
+        <p className="update-banner">
+          Update available: {updateStatus.latestVersion ?? 'new version'}
+          <button
+            className="update-action"
+            type="button"
+            onClick={async () => {
+              try {
+                await window.memo.openLatestRelease();
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Failed to open release page';
+                setErrorMessage(message);
+              }
+            }}
+          >
+            Open Download
+          </button>
+        </p>
+      ) : null}
+
+      {updateStatus?.state === 'error' && updateStatus.message ? (
+        <p className="error-banner">Update check failed: {updateStatus.message}</p>
+      ) : null}
 
       <section className="editor-wrap">
         <EditorContent editor={editor} />
