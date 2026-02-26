@@ -15,7 +15,7 @@
     "build:main": "tsc -p tsconfig.node.json",
     "start": "npm run build && electron dist-electron/electron/main.js",
     "icon:mac": "./scripts/make-mac-icon.sh",
-    "dist:mac": "npm run icon:mac && npm run build && electron-builder --mac dir",
+    "dist:mac": "npm run icon:mac && npm run build && electron-builder --mac dir zip",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "lint": "npm run typecheck",
     "test": "vitest run",
@@ -57,7 +57,8 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dir"
+        "dir",
+        "zip"
       ],
       "icon": "build/icon.icns"
     }

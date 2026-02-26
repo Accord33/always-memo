@@ -35,8 +35,27 @@ npm run dist:mac
 Output:
 
 - `release/mac-arm64/Always Memo.app` (Apple Silicon)
+- `release/Always Memo-<version>-arm64-mac.zip`
 
 You can launch it from Finder by double-clicking the app icon.
+
+## CI/CD (main push auto release)
+
+When you push to `main`, GitHub Actions automatically runs:
+
+1. `npm ci`
+2. `npm run lint`
+3. `npm run test`
+4. `npm run dist:mac`
+5. Tag creation: `v<package-version>+build.<run_number>`
+6. GitHub Release creation with:
+   - `electron-builder` generated `.zip`
+   - `.app` bundle archived as `.app.zip`
+
+Notes:
+
+- The release build is currently unsigned (no notarization).
+- Workflow file: `.github/workflows/release-on-main.yml`.
 
 ## Test
 

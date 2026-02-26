@@ -1,0 +1,79 @@
+name: Release on Main Push
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build distributables
+        run: npm run dist:mac
+
+      - name: Create and push release tag
+        id: release_tag
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="v${VERSION}+build.${GITHUB_RUN_NUMBER}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.release_tag.outputs.tag }}"
+
+          mapfile -t ZIP_ASSETS < <(find release -type f -name "*.zip" | sort)
+          mapfile -t APP_BUNDLES < <(find release -type d -name "*.app" | sort)
+
+          if [ "${#ZIP_ASSETS[@]}" -eq 0 ] || [ "${#APP_BUNDLES[@]}" -eq 0 ]; then
+            echo "Expected .zip and .app assets under release/, but some are missing."
+            exit 1
+          fi
+
+          APP_ARCHIVES=()
+          for app_bundle in "${APP_BUNDLES[@]}"; do
+            archive_path="${app_bundle}.zip"
+            ditto -c -k --sequesterRsrc --keepParent "${app_bundle}" "${archive_path}"
+            APP_ARCHIVES+=("${archive_path}")
+          done
+
+          gh release create "${TAG}" \
+            "${ZIP_ASSETS[@]}" \
+            "${APP_ARCHIVES[@]}" \
+            --title "${TAG}" \
+            --generate-notes
