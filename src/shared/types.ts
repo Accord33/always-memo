@@ -30,6 +30,16 @@ export type TopState = {
   alwaysOnTop: boolean;
 };
 
+export type UpdateState = 'idle' | 'checking' | 'available' | 'not_available' | 'error';
+
+export type UpdateStatusPayload = {
+  state: UpdateState;
+  currentVersion: string;
+  latestVersion?: string;
+  releaseUrl?: string;
+  message?: string;
+};
+
 export type MemoApi = {
   loadMemo: () => Promise<MemoRecord>;
   saveMemo: (doc: MemoDoc) => Promise<SaveMemoResponse>;
@@ -37,4 +47,7 @@ export type MemoApi = {
   pasteImageFromClipboard: () => Promise<ImageSaveResponse>;
   toggleAlwaysOnTop: () => Promise<TopState>;
   getAlwaysOnTop: () => Promise<TopState>;
+  getUpdateStatus: () => Promise<UpdateStatusPayload>;
+  onUpdateStatus: (listener: (payload: UpdateStatusPayload) => void) => () => void;
+  openLatestRelease: () => Promise<void>;
 };

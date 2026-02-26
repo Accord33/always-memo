@@ -1,14 +1,22 @@
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { app, BrowserWindow, clipboard, ipcMain, Menu, protocol } from 'electron';
+import { app, BrowserWindow, clipboard, ipcMain, Menu, protocol, shell } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import type { ImageSaveRequest, MemoDoc, TopState } from '../src/shared/types';
+import type { ImageSaveRequest, MemoDoc, TopState, UpdateStatusPayload } from '../src/shared/types';
 import { createStoragePaths, imagePathForId, loadMemo, saveImage, saveMemo } from './storage';
 
 let mainWindow: BrowserWindow | null = null;
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
+const UPDATE_STATUS_CHANNEL = 'app:updateStatus';
+const RELEASE_API_URL = 'https://api.github.com/repos/sakabe/always-memo/releases/latest';
+const RELEASE_URL_PATTERN = /^https:\/\/github\.com\/sakabe\/always-memo\/releases\/tag\/.+/;
+
+let latestUpdateStatus: UpdateStatusPayload = {
+  state: 'idle',
+  currentVersion: app.getVersion()
+};
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -152,6 +160,109 @@ function imageIdFromRequestUrl(requestUrl: string): string | null {
   }
 }
 
+function parseVersion(input: string): [number, number, number] | null {
+  const match = input.trim().match(/^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/);
+  if (!match) {
+    return null;
+  }
+
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
+
+function compareVersions(a: string, b: string): number {
+  const parsedA = parseVersion(a);
+  const parsedB = parseVersion(b);
+
+  if (!parsedA || !parsedB) {
+    return 0;
+  }
+
+  for (let i = 0; i < 3; i += 1) {
+    if (parsedA[i] > parsedB[i]) {
+      return 1;
+    }
+    if (parsedA[i] < parsedB[i]) {
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
+function versionFromTag(tag: string): string | null {
+  const trimmed = tag.trim();
+  const withoutPrefix = trimmed.startsWith('v') ? trimmed.slice(1) : trimmed;
+  return parseVersion(withoutPrefix) ? withoutPrefix : null;
+}
+
+function pushUpdateStatus(payload: UpdateStatusPayload): void {
+  latestUpdateStatus = payload;
+  mainWindow?.webContents.send(UPDATE_STATUS_CHANNEL, payload);
+}
+
+async function checkForUpdatesOnStartup(): Promise<void> {
+  const currentVersion = app.getVersion();
+
+  if (!app.isPackaged) {
+    latestUpdateStatus = {
+      state: 'idle',
+      currentVersion,
+      message: 'Update check is disabled in development.'
+    };
+    return;
+  }
+
+  pushUpdateStatus({
+    state: 'checking',
+    currentVersion
+  });
+
+  try {
+    const response = await fetch(RELEASE_API_URL, {
+      headers: {
+        accept: 'application/vnd.github+json',
+        'user-agent': 'always-memo-update-check'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Release API returned ${response.status}`);
+    }
+
+    const release = (await response.json()) as {
+      tag_name?: string;
+      html_url?: string;
+    };
+
+    const latestVersion = versionFromTag(release.tag_name ?? '');
+    if (!latestVersion) {
+      throw new Error('Failed to parse latest release version.');
+    }
+
+    if (compareVersions(latestVersion, currentVersion) > 0) {
+      pushUpdateStatus({
+        state: 'available',
+        currentVersion,
+        latestVersion,
+        releaseUrl: release.html_url
+      });
+      return;
+    }
+
+    pushUpdateStatus({
+      state: 'not_available',
+      currentVersion,
+      latestVersion
+    });
+  } catch (error) {
+    pushUpdateStatus({
+      state: 'error',
+      currentVersion,
+      message: error instanceof Error ? error.message : 'Failed to check updates.'
+    });
+  }
+}
+
 app.whenReady().then(() => {
   const storagePaths = createStoragePaths(app.getPath('userData'));
 
@@ -181,6 +292,7 @@ app.whenReady().then(() => {
 
   createAppMenu();
   createWindow();
+  void checkForUpdatesOnStartup();
 
   ipcMain.handle('memo:load', async () => loadMemo(storagePaths));
 
@@ -205,6 +317,16 @@ app.whenReady().then(() => {
   ipcMain.handle('window:toggleAlwaysOnTop', async () => toggleAlwaysOnTop());
 
   ipcMain.handle('window:getAlwaysOnTop', async () => getTopState());
+
+  ipcMain.handle('app:getUpdateStatus', async () => latestUpdateStatus);
+
+  ipcMain.handle('app:openLatestRelease', async () => {
+    const releaseUrl = latestUpdateStatus.releaseUrl;
+    if (!releaseUrl || !RELEASE_URL_PATTERN.test(releaseUrl)) {
+      throw new Error('No valid release URL is available.');
+    }
+    await shell.openExternal(releaseUrl);
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

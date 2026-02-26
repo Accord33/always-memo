@@ -10,6 +10,7 @@ A minimal macOS memo app built with Electron + Tiptap.
 - Paste images directly from clipboard (`Cmd+V`)
 - Drag and drop image files into the editor
 - Single memo auto-save and restore on restart
+- Check latest GitHub Release on startup and show update notice
 
 ## Development
 
@@ -56,6 +57,7 @@ Notes:
 
 - The release build is currently unsigned (no notarization).
 - Workflow file: `.github/workflows/release-on-main.yml`.
+- `main` push requires `package.json` version bump (CI fails otherwise).
 
 ## Test
 
