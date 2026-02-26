@@ -54,11 +54,15 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
           TAG="${{ steps.release_tag.outputs.tag }}"
 
-          mapfile -t ZIP_ASSETS < <(find release -type f -name "*.zip" | sort)
-          mapfile -t APP_BUNDLES < <(find release -type d -name "*.app" | sort)
+          OLD_IFS=$IFS
+          IFS=$'\n'
+          ZIP_ASSETS=($(find release -type f -name "*.zip" | sort))
+          APP_BUNDLES=($(find release -mindepth 2 -maxdepth 2 -type d -name "*.app" | sort))
+          IFS=$OLD_IFS
 
           if [ "${#ZIP_ASSETS[@]}" -eq 0 ] || [ "${#APP_BUNDLES[@]}" -eq 0 ]; then
             echo "Expected .zip and .app assets under release/, but some are missing."
