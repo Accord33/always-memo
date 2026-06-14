@@ -57,7 +57,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "sakabe",
+        "owner": "Accord33",
         "repo": "always-memo"
       }
     ],

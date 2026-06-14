@@ -58,6 +58,7 @@ Notes:
 - The release build is currently unsigned (no notarization).
 - Workflow file: `.github/workflows/release-on-main.yml`.
 - `main` push requires `package.json` version bump (CI fails otherwise).
+- Update check expects public GitHub Releases on `Accord33/always-memo`.
 
 ## Test
 

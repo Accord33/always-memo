@@ -10,8 +10,8 @@ const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2;
 const UPDATE_STATUS_CHANNEL = 'app:updateStatus';
-const RELEASE_API_URL = 'https://api.github.com/repos/sakabe/always-memo/releases/latest';
-const RELEASE_URL_PATTERN = /^https:\/\/github\.com\/sakabe\/always-memo\/releases\/tag\/.+/;
+const RELEASE_API_URL = 'https://api.github.com/repos/Accord33/always-memo/releases/latest';
+const RELEASE_URL_PATTERN = /^https:\/\/github\.com\/Accord33\/always-memo\/releases\/tag\/.+/;
 
 let latestUpdateStatus: UpdateStatusPayload = {
   state: 'idle',
